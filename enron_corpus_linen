@@ -43,7 +43,6 @@ enron_corpus_linen <- function(path_enron = "", path_output = "output",
                                cores = NULL) {
   obj <- get_enron_data(path_enron)
 
-  path_output <- Sys.getenv("ENRON_OUTPUT_PATH", "output")
   dir.create(path_output, FALSE)
 
   if (!is.null(cores)) {
