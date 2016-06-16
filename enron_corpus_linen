@@ -1,0 +1,78 @@
+#!/usr/bin/env Rscript
+get_enron_data <- function(path_enron) {
+  url <- "https://gitlab.com/rsheets/enron_corpus/raw/master/sheets"
+
+  ## TODO: I think this is incorrect because the *source* has an index
+  ## of course.  But what it doesn't have is the configuration that
+  ## goes along with the index.
+  if (nzchar(path_enron) && !remotefile::is_remotefile_dest(path_enron)) {
+    if (!file.exists(path_enron)) {
+      stop("Did not find enron files")
+    }
+    workbooks <- dir(path_enron, pattern = "\\.xlsx$")
+    path <- function(x) {
+      file.path(path_enron, x)
+    }
+  } else {
+    path_enron <- "enron_corpus"
+    dir.create(path_enron, FALSE)
+    h <- remotefile::remotefile_init(path_enron, url)
+    workbooks <- remotefile::remotefile_list(h)
+    path <- function(x) {
+      remotefile::remotefile_fetch(x, h)
+    }
+  }
+  list(workbooks = workbooks, path = path)
+}
+
+convert1 <- function(x, obj, dest) {
+  dest_filename <- file.path(dest, paste0(x, ".rds"))
+  if (!file.exists(dest_filename)) {
+    message(x)
+    dat <- try(rexcel::rexcel_read_workbook(obj$path(x), progress = FALSE),
+               silent = TRUE)
+    ok <- !inherits(dat, "try-error")
+    if (ok) {
+      saveRDS(dat, dest_filename)
+    }
+    ok
+  }
+}
+
+enron_corpus_linen <- function(path_enron = "", path_output = "output",
+                               cores = NULL) {
+  obj <- get_enron_data(path_enron)
+
+  path_output <- Sys.getenv("ENRON_OUTPUT_PATH", "output")
+  dir.create(path_output, FALSE)
+
+  if (!is.null(cores)) {
+    oo <- options(mc.cores = cores)
+    on.exit(options(oo))
+  }
+
+  parallel::mclapply(obj$workbooks, convert1, obj, path_output,
+                            mc.preschedule = FALSE)
+}
+
+main <- function(args = commandArgs(TRUE)) {
+  'Usage:
+  enron_corpus_linen [options]
+
+Options:
+  --path-enron=PATH   Path to the raw files
+  --path-output=PATH  Path to the output path [default: output]
+  --cores=N           Number of cores to use' -> doc
+  opts <- docopt::docopt(doc, args)
+  cores <- opts[["cores"]]
+  if (!is.null(cores)) {
+    cores <- as.integer(cores)
+  }
+  enron_corpus_linen(opts[["path-enron"]],
+                     opts[["path-output"]],
+                     cores)
+}
+
+if (!interactive()) {
+  main()
+}
