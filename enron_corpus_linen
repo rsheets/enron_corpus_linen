@@ -25,9 +25,9 @@ get_enron_data <- function(path_enron) {
   list(workbooks = workbooks, path = path)
 }
 
-convert1 <- function(x, obj, dest) {
+convert1 <- function(x, obj, dest, force=FALSE) {
   dest_filename <- file.path(dest, paste0(x, ".rds"))
-  if (!file.exists(dest_filename)) {
+  if (!file.exists(dest_filename) || force) {
     message(x)
     dat <- try(rexcel::rexcel_read_workbook(obj$path(x), progress = FALSE),
                silent = TRUE)
@@ -51,7 +51,7 @@ enron_corpus_linen <- function(path_enron = "", path_output = "output",
   }
 
   parallel::mclapply(obj$workbooks, convert1, obj, path_output,
-                            mc.preschedule = FALSE)
+                     mc.preschedule = FALSE)
 }
 
 main <- function(args = commandArgs(TRUE)) {
